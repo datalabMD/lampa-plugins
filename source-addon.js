@@ -11,7 +11,7 @@
                 var hidden = root.find('.buttons--container').first();
                 if (!hidden.length) return;
 
-                var rezka = root.find('.full-start-new__buttons .view--rezka4, .full-start__buttons .view--rezka4').first();
+                var rezka = root.find('.full-start-new__buttons .view--rezka4, .full-start__buttons .view--rezka4, .buttons--container .view--rezka4').first();
                 if (!rezka.length) return;
 
                 if (!rezka.find('svg').length) {
@@ -19,7 +19,7 @@
                 }
 
                 rezka.attr('data-subtitle', 'HDREZKA');
-                rezka.appendTo(hidden);
+                rezka.prependTo(hidden);
             });
         } catch (e) {
             console.log('REZKA4 source addon move error', e);
