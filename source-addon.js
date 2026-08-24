@@ -2,34 +2,43 @@
 (function () {
     'use strict';
 
-    try {
-        if (typeof Lampa === 'undefined' || !Lampa.Manifest) return;
+    function install() {
+        try {
+            if (typeof Lampa === 'undefined' || !Lampa.Listener) return;
 
-        Lampa.Manifest.plugins = {
-            type: 'video',
-            version: '1.0.0',
-            name: 'HDREZKA',
-            description: 'Просмотр через HDREZKA',
-            component: 'rezka4_online',
-            onContextMenu: function () {
-                return {
-                    name: 'HDREZKA',
-                    description: 'Онлайн'
-                };
-            },
-            onContextLauch: function (object) {
+            Lampa.Listener.follow('full', function (e) {
+                if (!e || e.type !== 'complite' || !e.object || !e.object.activity) return;
+
                 try {
-                    Lampa.Activity.push({
-                        title: 'HDREZKA - ' + ((object && (object.title || object.name)) || ''),
-                        component: 'rezka4_online',
-                        movie: object
-                    });
-                } catch (e) {
-                    console.log('REZKA4 source launch error', e);
+                    var root = e.object.activity.render();
+                    var hidden = root.find('.buttons--container');
+                    var rezka = root.find('.view--rezka4').first();
+
+                    if (!hidden.length || !rezka.length) return;
+
+                    if (!rezka.find('svg').length) {
+                        rezka.prepend('<svg><use xlink:href="#sprite-play"></use></svg>');
+                    }
+
+                    rezka.attr('data-subtitle', 'HDREZKA');
+                    rezka.appendTo(hidden);
+                } catch (err) {
+                    console.log('REZKA4 source addon move error', err);
                 }
+            });
+        } catch (e) {
+            console.log('REZKA4 source addon error', e);
+        }
+    }
+
+    if (typeof Lampa === 'undefined') {
+        var timer = setInterval(function () {
+            if (typeof Lampa !== 'undefined') {
+                clearInterval(timer);
+                install();
             }
-        };
-    } catch (e) {
-        console.log('REZKA4 source addon error', e);
+        }, 200);
+    } else {
+        install();
     }
 })();
