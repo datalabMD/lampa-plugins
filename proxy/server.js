@@ -11,6 +11,7 @@ const allowedHosts = new Set(
     .map((v) => v.trim().toLowerCase())
     .filter(Boolean)
 );
+const DEFAULT_UPSTREAM = process.env.DEFAULT_UPSTREAM || 'https://kvk.pub';
 
 const sessions = new Map();
 const SESSION_TTL = 12 * 60 * 60 * 1000;
@@ -86,13 +87,22 @@ function storeSetCookies(session, response) {
 
 function parseTarget(req) {
   let raw = typeof req.query?.url === 'string' ? req.query.url : '';
-  if (!raw) raw = req.originalUrl.replace(/^\//, '').split('?')[0];
+  if (!raw) raw = req.originalUrl.replace(/^\/+/, '').split('?')[0];
   try { raw = decodeURIComponent(raw); } catch {}
 
   if (/^https:\/[^/]/i.test(raw)) raw = raw.replace(/^https:\//i, 'https://');
   if (/^http:\/[^/]/i.test(raw)) raw = raw.replace(/^http:\//i, 'http://');
 
-  if (!/^https?:\/\//i.test(raw)) return null;
+  // Current Lampa plugin can pass relative links returned by Rezka search,
+  // e.g. /films/... . Resolve them against the configured default mirror.
+  if (!/^https?:\/\//i.test(raw)) {
+    raw = raw.replace(/^\/+/, '');
+    try {
+      raw = new URL('/' + raw, DEFAULT_UPSTREAM).toString();
+    } catch {
+      return null;
+    }
+  }
 
   let url;
   try { url = new URL(raw); } catch { return null; }
@@ -149,7 +159,7 @@ function responseContentType(upstream) {
 }
 
 app.get('/health', (req, res) => {
-  res.json({ ok: true, service: 'lampa-rezka-proxy', sessions: sessions.size });
+  res.json({ ok: true, service: 'lampa-rezka-proxy', sessions: sessions.size, defaultUpstream: DEFAULT_UPSTREAM });
 });
 
 app.all('*', async (req, res) => {
@@ -224,4 +234,5 @@ setInterval(() => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Lampa Rezka proxy listening on :${PORT}`);
   console.log(`Allowed hosts: ${[...allowedHosts].join(', ')}`);
+  console.log(`Default upstream: ${DEFAULT_UPSTREAM}`);
 });
