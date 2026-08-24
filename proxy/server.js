@@ -80,9 +80,20 @@ function storeSetCookies(session, response) {
 }
 
 function parseTarget(req) {
-  let raw = req.originalUrl.replace(/^\//, '');
+  // Primary format: /?url=https%3A%2F%2Fkvk.pub%2F...
+  let raw = typeof req.query?.url === 'string' ? req.query.url : '';
+
+  // Backward-compatible format used by the current Lampa plugin:
+  // /https://kvk.pub/... . Some reverse proxies normalize the double slash
+  // inside https:// and Node receives /https:/kvk.pub/..., so repair it.
+  if (!raw) raw = req.originalUrl.replace(/^\//, '').split('?')[0];
   try { raw = decodeURIComponent(raw); } catch {}
+
+  if (/^https:\/[^/]/i.test(raw)) raw = raw.replace(/^https:\//i, 'https://');
+  if (/^http:\/[^/]/i.test(raw)) raw = raw.replace(/^http:\//i, 'http://');
+
   if (!/^https?:\/\//i.test(raw)) return null;
+
   let url;
   try { url = new URL(raw); } catch { return null; }
   if (!allowedHosts.has(url.hostname.toLowerCase())) return null;
