@@ -2,42 +2,55 @@
 (function () {
     'use strict';
 
+    function moveButtons() {
+        try {
+            if (typeof window.$ !== 'function') return;
+
+            $('.full-start-new, .full-start').each(function () {
+                var root = $(this);
+                var hidden = root.find('.buttons--container').first();
+                if (!hidden.length) return;
+
+                var rezka = root.find('.full-start-new__buttons .view--rezka4, .full-start__buttons .view--rezka4').first();
+                if (!rezka.length) return;
+
+                if (!rezka.find('svg').length) {
+                    rezka.prepend('<svg><use xlink:href="#sprite-play"></use></svg>');
+                }
+
+                rezka.attr('data-subtitle', 'HDREZKA');
+                rezka.appendTo(hidden);
+            });
+        } catch (e) {
+            console.log('REZKA4 source addon move error', e);
+        }
+    }
+
     function install() {
         try {
-            if (typeof Lampa === 'undefined' || !Lampa.Listener) return;
+            moveButtons();
 
-            Lampa.Listener.follow('full', function (e) {
-                if (!e || e.type !== 'complite' || !e.object || !e.object.activity) return;
+            if (typeof MutationObserver !== 'undefined' && document && document.body) {
+                var observer = new MutationObserver(function () {
+                    moveButtons();
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+                window.rezka4_source_observer = observer;
+            }
 
-                try {
-                    var root = e.object.activity.render();
-                    var hidden = root.find('.buttons--container');
-                    var rezka = root.find('.view--rezka4').first();
-
-                    if (!hidden.length || !rezka.length) return;
-
-                    if (!rezka.find('svg').length) {
-                        rezka.prepend('<svg><use xlink:href="#sprite-play"></use></svg>');
-                    }
-
-                    rezka.attr('data-subtitle', 'HDREZKA');
-                    rezka.appendTo(hidden);
-                } catch (err) {
-                    console.log('REZKA4 source addon move error', err);
-                }
-            });
+            if (typeof Lampa !== 'undefined' && Lampa.Listener) {
+                Lampa.Listener.follow('full', function () {
+                    setTimeout(moveButtons, 0);
+                    setTimeout(moveButtons, 100);
+                });
+            }
         } catch (e) {
             console.log('REZKA4 source addon error', e);
         }
     }
 
-    if (typeof Lampa === 'undefined') {
-        var timer = setInterval(function () {
-            if (typeof Lampa !== 'undefined') {
-                clearInterval(timer);
-                install();
-            }
-        }, 200);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', install, { once: true });
     } else {
         install();
     }
