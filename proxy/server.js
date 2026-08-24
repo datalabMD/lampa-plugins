@@ -2,7 +2,7 @@ import express from 'express';
 const app=express();app.set('trust proxy',true);app.use(express.raw({type:'*/*',limit:'2mb'}));
 const PORT=Number(process.env.PORT||3000),hosts=new Set(['kvk.pub','rezka.fi']),sessions=new Map(),recent=[];let latestAuthKey='',pluginCache='',pluginLastError='',pluginSource='';
 const STABLE_PLUGIN_COMMIT='5e009bf00cc763cc6da55cbd7871fdfeb2cf8327';
-const STABLE_ADDON_COMMIT='1016d44f1da35ea0c9c94bce7cedee490d2db523';
+const STABLE_ADDON_COMMIT='6821a8b38896c29a2519272580fa3b2539ef212f';
 function k(q){const sid=String(q.headers['x-lampa-session']||'').trim();if(sid)return 'sid:'+sid;return`${String(q.headers['x-forwarded-for']||q.ip).split(',')[0]}|${q.headers['user-agent']||''}`}
 function ss(q){let key=k(q),x=sessions.get(key);if(!x){x={c:new Map(),updated:Date.now(),referer:'https://kvk.pub/'};sessions.set(key,x)}x.updated=Date.now();return x}
 function ck(x){return[...x.c].map(([a,b])=>a+'='+b).join('; ')}
