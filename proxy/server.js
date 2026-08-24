@@ -73,11 +73,7 @@ function parseTarget(req) {
   if (!raw) raw = req.originalUrl.replace(/^\/+/, '').split('?')[0];
   try { raw = decodeURIComponent(raw); } catch {}
 
-  // Lampa's current proxify() appends a slash to the configured proxy,
-  // therefore a value like https://proxy/?url= becomes ?url=/https://kvk.pub/...
-  // Strip those synthetic leading slashes before parsing the absolute target.
-  if (/^\/+https?:\//i.test(raw)) raw = raw.replace(/^\/+/, '');
-
+  if (/^\/+https?:\/\//i.test(raw)) raw = raw.replace(/^\/+/, '');
   if (/^https:\/[^/]/i.test(raw)) raw = raw.replace(/^https:\//i,'https://');
   if (/^http:\/[^/]/i.test(raw)) raw = raw.replace(/^http:\//i,'http://');
   if (!/^https?:\/\//i.test(raw)) {
@@ -116,6 +112,24 @@ async function warmSession(target, req, s) {
 app.get('/health',(req,res)=>res.json({ok:true,service:'lampa-rezka-proxy',sessions:sessions.size,defaultUpstream:DEFAULT_UPSTREAM}));
 app.get('/debug/recent',(req,res)=>res.json({ok:true,recent}));
 app.get('/favicon.ico',(req,res)=>res.sendStatus(204));
+
+// Permanent short plugin URL for the TV. The server fetches the current
+// implementation from GitHub and disables caching, so the Lampa URL never changes.
+app.get('/plugin.js', async (req, res) => {
+  try {
+    const src = `https://raw.githubusercontent.com/datalabMD/lampa-plugins/main/rezka4.js?t=${Date.now()}`;
+    const upstream = await fetch(src, { headers: { 'User-Agent': 'lampa-plugin-proxy' }, cache: 'no-store' });
+    if (!upstream.ok) return res.status(502).type('text/plain').send(`plugin upstream HTTP ${upstream.status}`);
+    const code = await upstream.text();
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.send(code);
+  } catch (e) {
+    res.status(502).type('text/plain').send(`plugin load failed: ${String(e?.message || e)}`);
+  }
+});
 
 app.all('*', async (req,res) => {
   const target = parseTarget(req);
