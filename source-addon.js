@@ -2,6 +2,8 @@
 (function () {
     'use strict';
 
+    var scheduled = false;
+
     function moveButtons() {
         try {
             if (typeof window.$ !== 'function') return;
@@ -19,11 +21,23 @@
                 }
 
                 rezka.attr('data-subtitle', 'HDREZKA');
-                rezka.prependTo(hidden);
+
+                var first = hidden.children().first();
+                var alreadyFirst = first.length && first[0] === rezka[0] && rezka.parent()[0] === hidden[0];
+                if (!alreadyFirst) rezka.prependTo(hidden);
             });
         } catch (e) {
             console.log('REZKA4 source addon move error', e);
         }
+    }
+
+    function scheduleMove() {
+        if (scheduled) return;
+        scheduled = true;
+        setTimeout(function () {
+            scheduled = false;
+            moveButtons();
+        }, 20);
     }
 
     function install() {
@@ -32,7 +46,7 @@
 
             if (typeof MutationObserver !== 'undefined' && document && document.body) {
                 var observer = new MutationObserver(function () {
-                    moveButtons();
+                    scheduleMove();
                 });
                 observer.observe(document.body, { childList: true, subtree: true });
                 window.rezka4_source_observer = observer;
@@ -40,8 +54,8 @@
 
             if (typeof Lampa !== 'undefined' && Lampa.Listener) {
                 Lampa.Listener.follow('full', function () {
-                    setTimeout(moveButtons, 0);
-                    setTimeout(moveButtons, 100);
+                    scheduleMove();
+                    setTimeout(scheduleMove, 100);
                 });
             }
         } catch (e) {
