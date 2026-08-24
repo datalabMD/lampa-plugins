@@ -72,6 +72,12 @@ function parseTarget(req) {
   let raw = typeof req.query?.url === 'string' ? req.query.url : '';
   if (!raw) raw = req.originalUrl.replace(/^\/+/, '').split('?')[0];
   try { raw = decodeURIComponent(raw); } catch {}
+
+  // Lampa's current proxify() appends a slash to the configured proxy,
+  // therefore a value like https://proxy/?url= becomes ?url=/https://kvk.pub/...
+  // Strip those synthetic leading slashes before parsing the absolute target.
+  if (/^\/+https?:\//i.test(raw)) raw = raw.replace(/^\/+/, '');
+
   if (/^https:\/[^/]/i.test(raw)) raw = raw.replace(/^https:\//i,'https://');
   if (/^http:\/[^/]/i.test(raw)) raw = raw.replace(/^http:\//i,'http://');
   if (!/^https?:\/\//i.test(raw)) {
@@ -109,6 +115,7 @@ async function warmSession(target, req, s) {
 
 app.get('/health',(req,res)=>res.json({ok:true,service:'lampa-rezka-proxy',sessions:sessions.size,defaultUpstream:DEFAULT_UPSTREAM}));
 app.get('/debug/recent',(req,res)=>res.json({ok:true,recent}));
+app.get('/favicon.ico',(req,res)=>res.sendStatus(204));
 
 app.all('*', async (req,res) => {
   const target = parseTarget(req);
