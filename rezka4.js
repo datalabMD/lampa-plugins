@@ -1,10 +1,12 @@
-/* HDREZKA plugin for Lampa v4.5.3 */
+/* HDREZKA plugin for Lampa v4.5.4 */
 (function(){'use strict';if(window.rezka4_plugin_ready)return;window.rezka4_plugin_ready=true;
 var DOMAIN='https://kvk.pub',PROXY='https://lampa.datalab.md/?url=';
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
-function px(u){return PROXY+encodeURIComponent(u)}
-function xhr(m,u,b,ok,fail){try{var x=new XMLHttpRequest();x.open(m,px(u),true);x.timeout=20000;x.setRequestHeader('X-Requested-With','XMLHttpRequest');if(m==='POST')x.setRequestHeader('Content-Type','application/x-www-form-urlencoded');x.onload=function(){x.status>=200&&x.status<300?ok(x.responseText,x):fail&&fail('HTTP '+x.status)};x.onerror=function(){fail&&fail('Сетевая ошибка')};x.ontimeout=function(){fail&&fail('Таймаут')};x.send(b||null)}catch(e){fail&&fail(e.message)}}
 function store(k){try{return Lampa.Storage.get(k)||''}catch(e){return''}}
+function sessionId(){var s=store('rezka_proxy_session');if(!s){s='tv-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,12);try{Lampa.Storage.set('rezka_proxy_session',s)}catch(e){}}return s}
+var PROXY_SESSION=sessionId();
+function px(u){return PROXY+encodeURIComponent(u)}
+function xhr(m,u,b,ok,fail){try{var x=new XMLHttpRequest();x.open(m,px(u),true);x.timeout=20000;x.setRequestHeader('X-Requested-With','XMLHttpRequest');x.setRequestHeader('X-Lampa-Session',PROXY_SESSION);if(m==='POST')x.setRequestHeader('Content-Type','application/x-www-form-urlencoded');x.onload=function(){x.status>=200&&x.status<300?ok(x.responseText,x):fail&&fail('HTTP '+x.status)};x.onerror=function(){fail&&fail('Сетевая ошибка')};x.ontimeout=function(){fail&&fail('Таймаут')};x.send(b||null)}catch(e){fail&&fail(e.message)}}
 function auth(cb,fail){var l=store('rezka_login')||store('rezka2_login'),p=store('rezka_password')||store('rezka2_password');if(!l||!p)return fail('Нет сохранённого логина/пароля');xhr('GET',DOMAIN+'/',null,function(){xhr('POST',DOMAIN+'/ajax/login/?t='+Date.now(),'login_name='+encodeURIComponent(l)+'&login_password='+encodeURIComponent(p)+'&login_not_save=0',function(t){var j;try{j=JSON.parse(t)}catch(e){}if(j&&j.success===false)return fail(j.message||'Ошибка входа');cb()},fail)},fail)}
 function abs(h){try{return new URL(h,DOMAIN+'/').toString()}catch(e){return h}}
 function search(q,y,cb,fail){xhr('GET',DOMAIN+'/engine/ajax/search.php?q='+encodeURIComponent(q),null,function(h){var d=document.implementation.createHTMLDocument('');d.documentElement.innerHTML=h;var a=[];Array.prototype.forEach.call(d.querySelectorAll('a'),function(e){var u=e.getAttribute('href');if(!u||u.indexOf('search')!==-1)return;var f=(e.textContent||'').trim(),m=f.match(/\b(19|20)\d{2}\b/);a.push({url:abs(u),year:m?m[0]:''})});if(y){var z=a.filter(function(i){return i.year==String(y)});if(z.length)a=z}cb(a)},fail)}
