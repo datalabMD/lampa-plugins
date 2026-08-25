@@ -63,6 +63,16 @@ const many = Array.from(
 ).join(',');
 assert.equal(subtitleList(many, {}, '').length, 20);
 assert.deepEqual(subtitleList('['.repeat(65536), {}, ''), []);
+assert.deepEqual(
+  subtitleList('[bad,[RU]https://cdn.example/nested.vtt', { RU: 'ru' }, 'ru')
+    .map((item) => item.label),
+  ['RU'],
+);
+assert.deepEqual(
+  subtitleList('[bad][RU]https://cdn.example/adjacent.vtt', { RU: 'ru' }, 'ru')
+    .map((item) => item.label),
+  ['RU'],
+);
 
 const copied = copySubtitles([
   { label: 'Bad', url: 'http://cdn.example/a.vtt' },
@@ -181,4 +191,4 @@ assert.deepEqual(nextPlayerItem.subtitles, [
   { index: 0, label: 'English', url: 'https://cdn.example/en-2.vtt' },
 ]);
 
-console.log('rezka4 subtitles: 12 cases passed');
+console.log('rezka4 subtitles: 14 cases passed');
