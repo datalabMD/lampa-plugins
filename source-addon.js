@@ -67,17 +67,32 @@
     function focusWatchButton(){
         try{
             if(typeof window.$!=='function'||typeof Lampa==='undefined'||!Lampa.Controller)return;
-            var full=$('.full-start-new:visible, .full-start:visible').last(); if(!full.length)return;
-            var watch=full.find('.button--play.selector, .view--play.selector, .full-start__button.selector').filter(function(){var t=String($(this).text()||'').toLowerCase();return t.indexOf('смотреть')!==-1}).first();
-            if(!watch.length) watch=full.find('.full-start-new__buttons .selector, .full-start__buttons .selector').first();
-            if(!watch.length)return;
-            try{Lampa.Controller.collectionSet(full,full);Lampa.Controller.collectionFocus(watch[0],full)}catch(e){}
-        }catch(e){}
+            var full=$('.full-start-new:visible, .full-start:visible').last();
+            if(!full.length)return;
+            var watch=full.find('.button--play.selector:not(.hide)').first();
+            if(!watch.length||watch[0].offsetParent===null)return;
+            Lampa.Controller.collectionSet(full,false,true);
+            Lampa.Controller.collectionFocus(watch[0],full,true);
+            if(Lampa.Controller.focus)Lampa.Controller.focus(watch[0]);
+        }catch(e){console.log('REZKA4 watch focus error',e)}
+    }
+
+    function installFullStartFocus(){
+        try{
+            if(typeof Lampa==='undefined'||!Lampa.Controller||!Lampa.Controller.listener||window.rezka4_full_start_focus)return;
+            window.rezka4_full_start_focus=true;
+            Lampa.Controller.listener.follow('toggle',function(e){
+                if(!e||e.name!=='full_start')return;
+                setTimeout(focusWatchButton,0);
+                setTimeout(focusWatchButton,60);
+                setTimeout(focusWatchButton,180);
+            });
+        }catch(e){console.log('REZKA4 full_start focus hook error',e)}
     }
 
     function moveButtons(){try{if(typeof window.$!=='function')return;$('.full-start-new, .full-start').each(function(){var root=$(this),hidden=root.find('.buttons--container').first();if(!hidden.length)return;var rezka=root.find('.full-start-new__buttons .view--rezka4, .full-start__buttons .view--rezka4, .buttons--container .view--rezka4').first();if(!rezka.length)return;if(!rezka.find('svg').length)rezka.prepend('<svg><use xlink:href="#sprite-play"></use></svg>');rezka.attr('data-subtitle','HDREZKA');var first=hidden.children().first(),alreadyFirst=first.length&&first[0]===rezka[0]&&rezka.parent()[0]===hidden[0];if(!alreadyFirst)rezka.prependTo(hidden)})}catch(e){console.log('REZKA4 source addon move error',e)}}
     function refreshUI(){decorateRezkaUI();moveButtons()}
     function scheduleMove(){if(scheduled)return;scheduled=true;setTimeout(function(){scheduled=false;refreshUI()},20)}
-    function install(){try{injectStyles();installGridLeftGuard();refreshUI();if(typeof MutationObserver!=='undefined'&&document&&document.body){var observer=new MutationObserver(function(){scheduleMove()});observer.observe(document.body,{childList:true,subtree:true});window.rezka4_source_observer=observer}if(typeof Lampa!=='undefined'&&Lampa.Listener)Lampa.Listener.follow('full',function(e){scheduleMove();setTimeout(scheduleMove,100);if(e&&e.type==='complite'){setTimeout(focusWatchButton,80);setTimeout(focusWatchButton,250)}})}catch(e){console.log('REZKA4 source addon error',e)}}
+    function install(){try{injectStyles();installGridLeftGuard();installFullStartFocus();refreshUI();if(typeof MutationObserver!=='undefined'&&document&&document.body){var observer=new MutationObserver(function(){scheduleMove()});observer.observe(document.body,{childList:true,subtree:true});window.rezka4_source_observer=observer}if(typeof Lampa!=='undefined'&&Lampa.Listener)Lampa.Listener.follow('full',function(){scheduleMove();setTimeout(scheduleMove,100)})}catch(e){console.log('REZKA4 source addon error',e)}}
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
