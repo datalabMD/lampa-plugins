@@ -1,7 +1,7 @@
 import express from 'express';
 const app=express();app.set('trust proxy',true);app.use(express.raw({type:'*/*',limit:'2mb'}));
 const PORT=Number(process.env.PORT||3000),sessions=new Map(),recent=[];let latestAuthKey='',pluginCache='',pluginLastError='',pluginSource='',historyCache='',historySource='';
-const STABLE_PLUGIN_COMMIT='8cba67b42eb6b37bdcdc8fc17fa4bd347532b91e';
+const STABLE_PLUGIN_COMMIT='1a33a1ebb615fb94f6f545338d0ae568b81c6834';
 const STABLE_UI_COMMIT='32d80eafae3bcf9b81df0c92bbc41ec96ecd65a5';
 const STABLE_UI_CODE=String.raw`/* Embedded stable HDREZKA UI layer. */
 (function () {
