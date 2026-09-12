@@ -1,6 +1,9 @@
 /* HDREZKA player UI polish: symmetric previous/play/next controls. */
 (function(){
 'use strict';
+var MARKER='R4-PLAYER-0912-F';window.rezka4_player_ui_marker=MARKER;
+function markDiagnostics(){try{if(typeof window.$!=='function')return;var root=$('.rezka4-diagnostics').first();if(!root.length)return;var row=root.find('[data-r4-player-marker]').first();if(row.length){row.find('.rezka4-meta').text(MARKER+' • player-ui-polish.js active');return}row=$('<div class="rezka4-card rezka4-diag-row" data-r4-player-marker="1" data-r4-status="ok"><div><div class="rezka4-main">Player UI layer</div><div class="rezka4-meta">'+MARKER+' • player-ui-polish.js active</div></div><div class="rezka4-badge">LIVE</div></div>');var summary=root.find('.rezka4-diag-summary').first();if(summary.length)row.insertAfter(summary);else root.prepend(row)}catch(e){}}
+(function watchMarker(){markDiagnostics();setTimeout(watchMarker,700)})();
 if(window.rezka4_player_ui_polish)return;window.rezka4_player_ui_polish=true;
 function ensureStyle(){if(document.getElementById('rezka4-player-ui-polish-style'))return;var s=document.createElement('style');s.id='rezka4-player-ui-polish-style';s.textContent='\
 .player-panel__center{position:relative!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:.78em!important}\
