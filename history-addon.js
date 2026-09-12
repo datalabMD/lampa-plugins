@@ -11,6 +11,7 @@ loadOne(github('history-core.js'),function(ok){
   if(!playlistOk){try{console.log('REZKA4 player playlist layer unavailable')}catch(e){}return}
   loadOne(github('player-translator-fix.js'),function(fixOk){
    if(!fixOk){try{console.log('REZKA4 translator pin fix unavailable')}catch(e){}}
+   loadOne(github('player-ui-polish.js'),function(uiOk){if(!uiOk)try{console.log('REZKA4 player UI polish unavailable')}catch(e){}})
    loadOne(github('home-history-top.js'),function(homeOk){if(!homeOk)try{console.log('REZKA4 home history prioritizer unavailable')}catch(e){}})
   })
  })
