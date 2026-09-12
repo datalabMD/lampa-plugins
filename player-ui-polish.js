@@ -1,10 +1,8 @@
 /* HDREZKA player UI polish: symmetric previous/play/next controls. */
 (function(){
 'use strict';
-var MARKER='R4-PLAYER-0912-F';window.rezka4_player_ui_marker=MARKER;
-function markDiagnostics(){try{if(typeof window.$!=='function')return;var root=$('.rezka4-diagnostics').first();if(!root.length)return;var row=root.find('[data-r4-player-marker]').first();if(row.length){row.find('.rezka4-meta').text(MARKER+' • player-ui-polish.js active');return}row=$('<div class="rezka4-card rezka4-diag-row" data-r4-player-marker="1" data-r4-status="ok"><div><div class="rezka4-main">Player UI layer</div><div class="rezka4-meta">'+MARKER+' • player-ui-polish.js active</div></div><div class="rezka4-badge">LIVE</div></div>');var summary=root.find('.rezka4-diag-summary').first();if(summary.length)row.insertAfter(summary);else root.prepend(row)}catch(e){}}
-(function watchMarker(){markDiagnostics();setTimeout(watchMarker,700)})();
 if(window.rezka4_player_ui_polish)return;window.rezka4_player_ui_polish=true;
+window.rezka4_player_ui_marker='R4-PLAYER-0912-I';
 function ensureStyle(){if(document.getElementById('rezka4-player-ui-polish-style'))return;var s=document.createElement('style');s.id='rezka4-player-ui-polish-style';s.textContent='\
 .player-panel__center{position:relative!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:.78em!important}\
 .player-panel__center .player-panel__playpause{background:#ff1744!important;border-color:#ff1744!important;box-shadow:0 0 0 .12em rgba(255,23,68,.35)!important}\
@@ -19,8 +17,9 @@ function ensureStyle(){if(document.getElementById('rezka4-player-ui-polish-style
 .player-panel__center .rezka4-center-prev .tooltip,.player-panel__center .rezka4-center-next .tooltip{display:none!important}\
 .player-panel__center .rezka4-center-prev.focus .tooltip,.player-panel__center .rezka4-center-next.focus .tooltip{display:block!important}\
 ';document.head.appendChild(s)}
+function probe(){try{Lampa.Noty.show('R4-PLAYER-0912-I LIVE')}catch(e){}}
 function clean(){try{$('.rezka4-episode-now').remove()}catch(e){}}
 function render(token){var tries=0;function step(){if(token!==window.rezka4_player_ui_polish_token)return;try{clean();var center=$('.player-panel__center').first(),play=center.find('.player-panel__playpause').first();if(!center.length||!play.length){if(tries++<40)return setTimeout(step,100);return}var prev=center.find('.rezka4-center-prev').first(),next=center.find('.rezka4-center-next').first();if(prev.length)prev.insertBefore(play);if(next.length)next.insertAfter(play)}catch(err){if(tries++<40)setTimeout(step,100)}}step()}
-function install(){ensureStyle();if(!Lampa.Player||!Lampa.Player.listener)return;Lampa.Player.listener.follow('start',function(){window.rezka4_player_ui_polish_token=(window.rezka4_player_ui_polish_token||0)+1;var token=window.rezka4_player_ui_polish_token;setTimeout(function(){render(token)},140);setTimeout(function(){render(token)},450);setTimeout(function(){render(token)},900)});Lampa.Player.listener.follow('destroy',function(){window.rezka4_player_ui_polish_token=(window.rezka4_player_ui_polish_token||0)+1;clean()})}
+function install(){ensureStyle();if(!Lampa.Player||!Lampa.Player.listener)return;Lampa.Player.listener.follow('start',function(){probe();window.rezka4_player_ui_polish_token=(window.rezka4_player_ui_polish_token||0)+1;var token=window.rezka4_player_ui_polish_token;setTimeout(function(){render(token)},140);setTimeout(function(){render(token)},450);setTimeout(function(){render(token)},900)});Lampa.Player.listener.follow('destroy',function(){window.rezka4_player_ui_polish_token=(window.rezka4_player_ui_polish_token||0)+1;clean()})}
 if(typeof Lampa==='undefined')return;install();
 })();
