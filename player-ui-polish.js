@@ -4,6 +4,8 @@
 if(window.rezka4_player_ui_polish)return;window.rezka4_player_ui_polish=true;
 function ensureStyle(){if(document.getElementById('rezka4-player-ui-polish-style'))return;var s=document.createElement('style');s.id='rezka4-player-ui-polish-style';s.textContent='\
 .player-panel__center{position:relative!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:.78em!important}\
+.player-panel__center .player-panel__playpause{background:#ff1744!important;border-color:#ff1744!important;box-shadow:0 0 0 .12em rgba(255,23,68,.35)!important}\
+.player-panel__center .player-panel__playpause svg{fill:#fff!important;color:#fff!important}\
 .player-panel__center .rezka4-center-prev,.player-panel__center .rezka4-center-next{box-sizing:border-box!important;display:flex!important;align-items:center!important;justify-content:center!important;flex:0 0 2.7em!important;min-width:2.7em!important;width:2.7em!important;max-width:2.7em!important;height:2.7em!important;min-height:2.7em!important;padding:0!important;margin:0!important;border-radius:50%!important;background:rgba(255,255,255,.16)!important;border:.07em solid rgba(255,255,255,.28)!important;opacity:1!important;transition:transform .12s ease,background .12s ease,border-color .12s ease!important}\
 .player-panel__center .rezka4-center-prev{order:40!important}\
 .player-panel__center .player-panel__playpause{order:50!important}\
