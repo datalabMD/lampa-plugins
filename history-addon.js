@@ -3,42 +3,15 @@
 'use strict';
 if(window.rezka4_dynamic_feature_loader)return;window.rezka4_dynamic_feature_loader=true;
 var stamp=Date.now();
-var DYNAMIC_MARKER='R4-DYN-0912-D';
+var DYNAMIC_MARKER='R4-DYN-0912-M';
 window.rezka4_dynamic_marker=DYNAMIC_MARKER;
-function addVersionMarker(){
- try{
-  if(typeof Lampa==='undefined'||!Lampa.SettingsApi)return false;
-  if(window.rezka4_dynamic_marker_added)return true;
-  Lampa.SettingsApi.addParam({component:'rezka4',param:{type:'button'},field:{name:'Версия динамического слоя',description:DYNAMIC_MARKER+' • свежий history-addon.js загружен'},onChange:function(){try{Lampa.Noty.show('HDREZKA '+DYNAMIC_MARKER)}catch(e){}}});
-  window.rezka4_dynamic_marker_added=true;
-  return true;
- }catch(e){return false}
-}
+function ensurePlayerControlStyle(){try{['r4-bundle-probe-style','rezka4-playlist-probe-style','rezka4-translator-probe-style','rezka4-dyn-player-style'].forEach(function(id){var old=document.getElementById(id);if(old)old.remove()});var s=document.createElement('style');s.id='rezka4-dyn-player-style';s.textContent='.player-panel__center{position:relative!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:.78em!important}.player-panel__center .rezka4-center-prev,.player-panel__center .rezka4-center-next{box-sizing:border-box!important;display:flex!important;align-items:center!important;justify-content:center!important;flex:0 0 2.7em!important;min-width:2.7em!important;width:2.7em!important;max-width:2.7em!important;height:2.7em!important;min-height:2.7em!important;padding:0!important;margin:0!important;border-radius:50%!important;background:rgba(255,255,255,.16)!important;border:.07em solid rgba(255,255,255,.28)!important;opacity:1!important}.player-panel__center .rezka4-center-prev{order:40!important}.player-panel__center .player-panel__playpause{order:50!important}.player-panel__center .rezka4-center-next{order:60!important}.player-panel__center .rezka4-center-prev svg,.player-panel__center .rezka4-center-next svg{display:block!important;width:1.5em!important;height:1.5em!important;min-width:1.5em!important;min-height:1.5em!important;fill:currentColor!important}.player-panel__center .rezka4-center-prev.focus,.player-panel__center .rezka4-center-next.focus{background:rgba(255,255,255,.94)!important;border-color:#fff!important;color:#111!important;transform:scale(1.08)!important}.player-panel__center .rezka4-center-prev.focus svg,.player-panel__center .rezka4-center-next.focus svg{fill:#111!important;color:#111!important}.player-panel__center .rezka4-center-prev .tooltip,.player-panel__center .rezka4-center-next .tooltip{display:none!important}.player-panel__center .rezka4-center-prev.focus .tooltip,.player-panel__center .rezka4-center-next.focus .tooltip{display:block!important}';(document.head||document.documentElement).appendChild(s)}catch(e){}}
+ensurePlayerControlStyle();
+function addVersionMarker(){try{if(typeof Lampa==='undefined'||!Lampa.SettingsApi)return false;if(window.rezka4_dynamic_marker_added)return true;Lampa.SettingsApi.addParam({component:'rezka4',param:{type:'button'},field:{name:'Версия динамического слоя',description:DYNAMIC_MARKER+' • свежий history-addon.js загружен'},onChange:function(){try{Lampa.Noty.show('HDREZKA '+DYNAMIC_MARKER)}catch(e){}}});window.rezka4_dynamic_marker_added=true;return true}catch(e){return false}}
 function scheduleVersionMarker(){var tries=0;function step(){if(addVersionMarker())return;if(tries++<20)setTimeout(step,500)}step()}
 scheduleVersionMarker();
-function evalLoad(url,done){
- try{
-  fetch(url+(url.indexOf('?')>=0?'&':'?')+'ts='+stamp,{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
-   .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()})
-   .then(function(code){try{(0,eval)(code+'\n//# sourceURL='+url);done&&done(true)}catch(e){console.log('REZKA4 eval load error',url,e);done&&done(false)}})
-   .catch(function(){done&&done(false)})
- }catch(e){done&&done(false)}
-}
+function evalLoad(url,done){try{fetch(url+(url.indexOf('?')>=0?'&':'?')+'ts='+stamp,{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()}).then(function(code){try{(0,eval)(code+'\n//# sourceURL='+url);done&&done(true)}catch(e){console.log('REZKA4 eval load error',url,e);done&&done(false)}}).catch(function(){done&&done(false)})}catch(e){done&&done(false)}}
 function scriptLoad(url,done){var s=document.createElement('script');s.async=false;s.src=url+(url.indexOf('?')>=0?'&':'?')+'ts='+stamp;s.onload=function(){done&&done(true)};s.onerror=function(){try{s.remove()}catch(e){}done&&done(false)};(document.head||document.documentElement).appendChild(s)}
-function loadOne(path,done){
- var raw='https://raw.githubusercontent.com/datalabMD/lampa-plugins/main/'+path;
- var cdn='https://cdn.jsdelivr.net/gh/datalabMD/lampa-plugins@main/'+path;
- evalLoad(raw,function(ok){if(ok)return done&&done(true);scriptLoad(cdn,done)})
-}
-loadOne('history-core.js',function(ok){
- if(!ok){try{console.log('REZKA4 history core unavailable')}catch(e){}return}
- loadOne('player-playlist-addon.js',function(playlistOk){
-  if(!playlistOk){try{console.log('REZKA4 player playlist layer unavailable')}catch(e){}return}
-  loadOne('player-translator-fix.js',function(fixOk){
-   if(!fixOk){try{console.log('REZKA4 translator pin fix unavailable')}catch(e){}}
-   loadOne('player-ui-polish.js',function(uiOk){if(!uiOk)try{console.log('REZKA4 player UI polish unavailable')}catch(e){}})
-   loadOne('home-history-top.js',function(homeOk){if(!homeOk)try{console.log('REZKA4 home history prioritizer unavailable')}catch(e){}})
-  })
- })
-});
+function loadOne(path,done){var raw='https://raw.githubusercontent.com/datalabMD/lampa-plugins/main/'+path;var cdn='https://cdn.jsdelivr.net/gh/datalabMD/lampa-plugins@main/'+path;evalLoad(raw,function(ok){if(ok)return done&&done(true);scriptLoad(cdn,done)})}
+loadOne('history-core.js',function(ok){if(!ok){try{console.log('REZKA4 history core unavailable')}catch(e){}return}loadOne('player-playlist-addon.js',function(playlistOk){if(!playlistOk){try{console.log('REZKA4 player playlist layer unavailable')}catch(e){}return}loadOne('player-translator-fix.js',function(fixOk){if(!fixOk){try{console.log('REZKA4 translator pin fix unavailable')}catch(e){}}loadOne('player-ui-polish.js',function(uiOk){if(!uiOk)try{console.log('REZKA4 player UI polish unavailable')}catch(e){}});loadOne('home-history-top.js',function(homeOk){if(!homeOk)try{console.log('REZKA4 home history prioritizer unavailable')}catch(e){}})})})});
 })();
