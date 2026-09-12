@@ -3,6 +3,19 @@
 'use strict';
 if(window.rezka4_dynamic_feature_loader)return;window.rezka4_dynamic_feature_loader=true;
 var stamp=Date.now();
+var DYNAMIC_MARKER='R4-DYN-0912-D';
+window.rezka4_dynamic_marker=DYNAMIC_MARKER;
+function addVersionMarker(){
+ try{
+  if(typeof Lampa==='undefined'||!Lampa.SettingsApi)return false;
+  if(window.rezka4_dynamic_marker_added)return true;
+  Lampa.SettingsApi.addParam({component:'rezka4',param:{type:'button'},field:{name:'Версия динамического слоя',description:DYNAMIC_MARKER+' • свежий history-addon.js загружен'},onChange:function(){try{Lampa.Noty.show('HDREZKA '+DYNAMIC_MARKER)}catch(e){}}});
+  window.rezka4_dynamic_marker_added=true;
+  return true;
+ }catch(e){return false}
+}
+function scheduleVersionMarker(){var tries=0;function step(){if(addVersionMarker())return;if(tries++<20)setTimeout(step,500)}step()}
+scheduleVersionMarker();
 function evalLoad(url,done){
  try{
   fetch(url+(url.indexOf('?')>=0?'&':'?')+'ts='+stamp,{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
