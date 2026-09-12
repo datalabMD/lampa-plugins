@@ -1,9 +1,44 @@
-/* HDREZKA delivery probe */
+/* HDREZKA dynamic feature loader. Stable base remains independent. */
 (function(){
 'use strict';
-var MARK='R4-BUNDLE-PROBE';
-window.rezka4_bundle_probe=MARK;
-function style(){try{var s=document.getElementById('r4-bundle-probe-style');if(!s){s=document.createElement('style');s.id='r4-bundle-probe-style';s.textContent='.player-panel__playpause{background:#ff1744!important;border-color:#ff1744!important}.player-panel__playpause svg{fill:#fff!important;color:#fff!important}';(document.head||document.documentElement).appendChild(s)}}catch(e){}}
-function install(){style();try{if(Lampa.Player&&Lampa.Player.listener)Lampa.Player.listener.follow('start',function(){style();try{Lampa.Noty.show(MARK+' LIVE')}catch(e){}})}catch(e){}try{if(Lampa.SettingsApi)Lampa.SettingsApi.addParam({component:'rezka4',param:{type:'button'},field:{name:'Bundle probe',description:MARK+' active'},onChange:function(){try{Lampa.Noty.show(MARK)}catch(e){}}})}catch(e){}}
-if(typeof Lampa==='undefined'){var n=0,t=setInterval(function(){if(typeof Lampa!=='undefined'||n++>40){clearInterval(t);if(typeof Lampa!=='undefined')install()}},250)}else install();
+if(window.rezka4_dynamic_feature_loader)return;window.rezka4_dynamic_feature_loader=true;
+var stamp=Date.now();
+var DYNAMIC_MARKER='R4-DYN-0912-D';
+window.rezka4_dynamic_marker=DYNAMIC_MARKER;
+function addVersionMarker(){
+ try{
+  if(typeof Lampa==='undefined'||!Lampa.SettingsApi)return false;
+  if(window.rezka4_dynamic_marker_added)return true;
+  Lampa.SettingsApi.addParam({component:'rezka4',param:{type:'button'},field:{name:'Версия динамического слоя',description:DYNAMIC_MARKER+' • свежий history-addon.js загружен'},onChange:function(){try{Lampa.Noty.show('HDREZKA '+DYNAMIC_MARKER)}catch(e){}}});
+  window.rezka4_dynamic_marker_added=true;
+  return true;
+ }catch(e){return false}
+}
+function scheduleVersionMarker(){var tries=0;function step(){if(addVersionMarker())return;if(tries++<20)setTimeout(step,500)}step()}
+scheduleVersionMarker();
+function evalLoad(url,done){
+ try{
+  fetch(url+(url.indexOf('?')>=0?'&':'?')+'ts='+stamp,{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
+   .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()})
+   .then(function(code){try{(0,eval)(code+'\n//# sourceURL='+url);done&&done(true)}catch(e){console.log('REZKA4 eval load error',url,e);done&&done(false)}})
+   .catch(function(){done&&done(false)})
+ }catch(e){done&&done(false)}
+}
+function scriptLoad(url,done){var s=document.createElement('script');s.async=false;s.src=url+(url.indexOf('?')>=0?'&':'?')+'ts='+stamp;s.onload=function(){done&&done(true)};s.onerror=function(){try{s.remove()}catch(e){}done&&done(false)};(document.head||document.documentElement).appendChild(s)}
+function loadOne(path,done){
+ var raw='https://raw.githubusercontent.com/datalabMD/lampa-plugins/main/'+path;
+ var cdn='https://cdn.jsdelivr.net/gh/datalabMD/lampa-plugins@main/'+path;
+ evalLoad(raw,function(ok){if(ok)return done&&done(true);scriptLoad(cdn,done)})
+}
+loadOne('history-core.js',function(ok){
+ if(!ok){try{console.log('REZKA4 history core unavailable')}catch(e){}return}
+ loadOne('player-playlist-addon.js',function(playlistOk){
+  if(!playlistOk){try{console.log('REZKA4 player playlist layer unavailable')}catch(e){}return}
+  loadOne('player-translator-fix.js',function(fixOk){
+   if(!fixOk){try{console.log('REZKA4 translator pin fix unavailable')}catch(e){}}
+   loadOne('player-ui-polish.js',function(uiOk){if(!uiOk)try{console.log('REZKA4 player UI polish unavailable')}catch(e){}})
+   loadOne('home-history-top.js',function(homeOk){if(!homeOk)try{console.log('REZKA4 home history prioritizer unavailable')}catch(e){}})
+  })
+ })
+});
 })();
