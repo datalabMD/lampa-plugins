@@ -1,13 +1,13 @@
 /* HDREZKA dynamic feature loader. Stable base remains independent. */
 (function(){
 'use strict';
-var LOADER_REV='R4-DYN-0913-PINNED-6BB6';
+var LOADER_REV='R4-DYN-0913-PINNED-32A9';
 if(window.rezka4_dynamic_feature_loader_rev===LOADER_REV)return;
 window.rezka4_dynamic_feature_loader_rev=LOADER_REV;
 window.rezka4_dynamic_feature_loader=true;
 var stamp=Date.now();
-var DYNAMIC_COMMIT='6bb6b409968fea221291316605d45f54f7f3b680';
-var DYNAMIC_MARKER='R4-DYN-0913-PINNED';
+var DYNAMIC_COMMIT='32a9fa75ed889d201cc4c3fce906ab82946078d7';
+var DYNAMIC_MARKER='R4-DYN-0913-NAVFIX';
 window.rezka4_dynamic_marker=DYNAMIC_MARKER;
 function cleanupLegacyStyles(){try{['r4-bundle-probe-style','rezka4-playlist-probe-style','rezka4-translator-probe-style','rezka4-dyn-player-style'].forEach(function(id){var old=document.getElementById(id);if(old)old.remove()})}catch(e){}}
 cleanupLegacyStyles();
