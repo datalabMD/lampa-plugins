@@ -32,8 +32,11 @@
     function install() {
         var app = window.Lampa;
         if (!app || !app.Player || !app.Player.listener) return setTimeout(install, 200);
-        if (window.datalabTorrServePlayerInstalled) return;
-        window.datalabTorrServePlayerInstalled = true;
+        // Leave the legacy Datalab flag untouched so either plugin can load first.
+        var installedOrigins = window.torrServePlayerInstalledByOrigin ||
+            (window.torrServePlayerInstalledByOrigin = Object.create(null));
+        if (installedOrigins[sourceOrigin]) return;
+        installedOrigins[sourceOrigin] = true;
 
         var pending = null, active = null, replaying = null;
         var subtitleTimer = null, subtitleGeneration = 0;
