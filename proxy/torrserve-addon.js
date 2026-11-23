@@ -36,8 +36,79 @@
         window.datalabTorrServePlayerInstalled = true;
 
         var pending = null, active = null, replaying = null;
+        var subtitleTimer = null, subtitleGeneration = 0;
+
+        function cancelSubtitles() {
+            subtitleGeneration++;
+            if (subtitleTimer !== null) {
+                try { clearTimeout(subtitleTimer); } catch (e) {}
+                subtitleTimer = null;
+            }
+        }
+
+        function selectedNativeSubtitle(job, video) {
+            if (!job || active !== job || !video || app.PlayerVideo.video() !== video ||
+                video.tagName !== 'VIDEO' || video.customSubs || video.webos_subs || video.destroy) return null;
+            function owns(url) {
+                return job.urls.some(function (original) { return job.tickets[original] === url; });
+            }
+            // During source loading, keep stock selection instead of disabling a track we may lose.
+            if (!video.currentSrc || video.currentSrc !== video.src || !owns(video.src)) return null;
+            var tracks = video.textTracks, selected = null;
+            if (!tracks) return null;
+            for (var i = 0; i < tracks.length; i++) {
+                if (tracks[i].selected === true) {
+                    if (selected) return null;
+                    selected = tracks[i];
+                }
+            }
+            return selected && !selected.onSelect &&
+                (selected.kind === 'subtitles' || selected.kind === 'captions') ? selected : null;
+        }
+
+        function nativeSubtitleSelected() {
+            cancelSubtitles();
+            var generation = subtitleGeneration, job = active, video, selected, src, currentSrc;
+            function enableCurrent() {
+                if (generation === subtitleGeneration && selected && video.src === src &&
+                    video.currentSrc === currentSrc && selectedNativeSubtitle(job, video) === selected &&
+                    selected.mode !== 'showing') {
+                    selected.mode = 'showing';
+                }
+            }
+            try {
+                video = app.PlayerVideo.video();
+                selected = selectedNativeSubtitle(job, video);
+                if (!selected || selected.mode !== 'showing') return;
+                src = video.src;
+                currentSrc = video.currentSrc;
+                // VIDAA workaround: emulate the user's working Off -> On sequence once.
+                // 200ms is a bounded off interval, not a guaranteed firmware timing requirement.
+                selected.mode = 'disabled';
+                subtitleTimer = setTimeout(function () {
+                    if (generation !== subtitleGeneration) return;
+                    subtitleTimer = null;
+                    try { enableCurrent(); }
+                    catch (e) { try { enableCurrent(); } catch (ignored) {} }
+                }, 200);
+            } catch (e) {
+                // A failed setter/timer must not strand the still-current choice in Off.
+                try { enableCurrent(); } catch (ignored) {}
+            }
+        }
+
+        try {
+            var ua = window.navigator && window.navigator.userAgent || '';
+            if (/\bVIDAA\b/i.test(ua) && !/Android|Roku|CrKey|lampa_client/i.test(ua) &&
+                app.PlayerPanel && app.PlayerPanel.listener && app.PlayerVideo &&
+                typeof app.PlayerVideo.video === 'function' && app.PlayerVideo.listener) {
+                app.PlayerPanel.listener.follow('subsview', nativeSubtitleSelected);
+                app.PlayerVideo.listener.follow('destroy', cancelSubtitles);
+            }
+        } catch (e) {}
 
         function cancel() {
+            cancelSubtitles();
             if (!pending) return;
             var job = pending;
             pending = null;
@@ -54,6 +125,7 @@
         }
 
         function release() {
+            cancelSubtitles();
             if (!active) return;
             restoreUrl(active);
             if (active.variants && active.data.quality === active.variants) active.data.quality = active.quality;
@@ -124,6 +196,7 @@
         }
 
         app.Player.listener.follow('create', function (event) {
+            cancelSubtitles();
             var data = event.data;
             if (replaying && replaying === data) {
                 replaying = null;

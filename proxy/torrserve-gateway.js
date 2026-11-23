@@ -52,32 +52,33 @@ function transport(url) { return url.protocol === 'https:' ? https : http; }
 
 // A loaded native TorrServe stream can be public even with HttpAuth enabled.
 // Revalidate against the protected settings API for every new media request.
-function authenticate(config, authorization) {
+function authenticate(config, authorization, signal) {
   if (!basic(authorization)) return Promise.resolve(401);
   return new Promise(resolve => {
     const url = new URL('/settings', config.upstream);
     const body = '{"action":"get"}';
     let settled = false;
     const finish = status => { if (!settled) { settled = true; resolve(status); } };
-    const request = transport(url).request(url, {method:'POST', headers:{
+    const request = transport(url).request(url, {method:'POST', signal, headers:{
       Authorization:authorization, 'Content-Type':'application/json', 'Content-Length':Buffer.byteLength(body),
       'Accept-Encoding':'identity'
     }}, response => {
+      response.on('error', () => finish(502));
       if (response.statusCode !== 200) {
-        response.resume(); finish([401,403].includes(response.statusCode) ? 401 : 502); return;
+        finish([401,403].includes(response.statusCode) ? 401 : 502);
+        response.destroy();
+        return;
       }
       const chunks = []; let size = 0;
       response.on('data', chunk => {
         size += chunk.length;
         if (size > 65536) { finish(502); response.destroy(); } else chunks.push(chunk);
       });
-      response.on('error', () => finish(502));
       response.on('end', () => {
         try { finish(typeof JSON.parse(Buffer.concat(chunks).toString('utf8')).CacheSize === 'number' ? 200 : 502); }
         catch { finish(502); }
       });
     });
-    request.setTimeout(10000, () => { finish(502); request.destroy(); });
     request.on('error', () => finish(502));
     request.end(body);
   });
@@ -85,6 +86,29 @@ function authenticate(config, authorization) {
 
 function sendError(res, status, code) {
   if (!res.headersSent && !res.destroyed) res.status(status).json({error:code});
+}
+
+// Trace only validated ticket requests. Public access logs may contain bearer URLs;
+// never include request paths, headers, bodies or request-derived IDs here.
+function traceTicket(res) {
+  const started = performance.now();
+  const requestId = randomBytes(8).toString('hex');
+  const trace = {authMs:null, outcome:'gateway_error'};
+  console.info(JSON.stringify({event:'torrserve_ticket', phase:'begin', at:new Date().toISOString(), requestId}));
+  function report() {
+    res.off('finish', report);
+    res.off('close', report);
+    const totalMs = Math.round(performance.now() - started);
+    console.info(JSON.stringify({
+      event:'torrserve_ticket', phase:'end', at:new Date().toISOString(), requestId,
+      status:res.headersSent ? res.statusCode : null,
+      outcome:res.writableFinished ? trace.outcome : 'client_closed',
+      totalMs, authMs:trace.authMs ?? totalMs
+    }));
+  }
+  res.once('finish', report);
+  res.once('close', report);
+  return trace;
 }
 
 function stream(config, ticket, req, res) {
@@ -157,14 +181,31 @@ export function createTorrserveGateway(env) {
   const config = configFrom(env);
   const tickets = new Map();
   let pendingAuth = 0;
-  const verifyAuth = async authorization => {
-    if (pendingAuth >= 16) return 429;
-    pendingAuth++;
-    try { return await authenticate(config,authorization); }
-    finally { pendingAuth--; }
-  };
   const authError = (status, unauthorizedCode) => status === 401 ? unauthorizedCode :
     status === 429 ? 'authorization_busy' : 'upstream_unavailable';
+
+  async function verifyAuth(authorization, req, res) {
+    if (pendingAuth >= 16) return {status:429, outcome:'authorization_busy'};
+    pendingAuth++;
+    const controller = new AbortController();
+    const disconnect = () => controller.abort('client_closed');
+    req.once('aborted', disconnect);
+    res.once('close', disconnect);
+    // A socket inactivity timer excludes DNS/connect and resets on every byte.
+    // This deadline spans all phases, including receipt of the complete settings JSON.
+    const deadline = setTimeout(() => controller.abort('auth_timeout'), 10000);
+    try {
+      if (req.aborted || res.destroyed) disconnect();
+      const status = await authenticate(config, authorization, controller.signal);
+      if (controller.signal.aborted) return {status:502, outcome:controller.signal.reason};
+      return {status, outcome:status === 200 ? 'authorized' : authError(status,'authorization_required')};
+    } finally {
+      clearTimeout(deadline);
+      req.off('aborted', disconnect);
+      res.off('close', disconnect);
+      pendingAuth--;
+    }
+  }
   const prune = () => {
     const now = Date.now();
     for (const [key,ticket] of tickets) if (ticket.expires <= now) tickets.delete(key);
@@ -198,14 +239,24 @@ export function createTorrserveGateway(env) {
           try { body = JSON.parse(req.body.toString('utf8')); } catch { return sendError(res,400,'invalid_request'); }
           const path = canonicalStream(body?.url,config.source);
           if (!path) return sendError(res,400,'invalid_stream');
-          const status = await verifyAuth(req.headers.authorization);
-          if (status !== 200) return sendError(res,status,authError(status,'authorization_required'));
+          const trace = traceTicket(res);
+          const authStarted = performance.now();
+          const {status, outcome} = await verifyAuth(req.headers.authorization, req, res);
+          trace.authMs = Math.round(performance.now() - authStarted);
+          if (status !== 200) {
+            trace.outcome = outcome;
+            return sendError(res,status,authError(status,'authorization_required'));
+          }
           if (res.destroyed) return;
           prune();
-          if (tickets.size >= config.capacity) return sendError(res,429,'ticket_capacity');
+          if (tickets.size >= config.capacity) {
+            trace.outcome = 'ticket_capacity';
+            return sendError(res,429,'ticket_capacity');
+          }
           const token = randomBytes(32).toString('hex');
           const expires = Date.now() + config.ttl * 1000;
           tickets.set(token,{path,authorization:req.headers.authorization,expires});
+          trace.outcome = 'issued';
           return res.json({url:config.publicOrigin + PREFIX + '/play/' + token,expiresAt:Math.ceil(expires/1000)});
         }
         if (url.pathname.startsWith('/play/')) {
@@ -214,7 +265,7 @@ export function createTorrserveGateway(env) {
           const token = match && !url.search ? match[1] : '';
           const ticket = tickets.get(token);
           if (!ticket) return sendError(res,401,'invalid_or_expired_ticket');
-          const status = await verifyAuth(ticket.authorization);
+          const {status} = await verifyAuth(ticket.authorization, req, res);
           if (status !== 200) {
             if (status === 401) tickets.delete(token);
             return sendError(res,status,authError(status,'invalid_or_expired_ticket'));

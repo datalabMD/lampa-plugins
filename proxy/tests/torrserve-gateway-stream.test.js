@@ -31,7 +31,7 @@ async function fixture(t, mode) {
   let producerResponse, gatewayResponse, producerTimer, viewerRequest, viewerResponse;
   let sourceClosed = false, received = 0;
   const logs = [], originalInfo = console.info;
-  console.info = line => { logs.push(line); };
+  console.info = line => { if (JSON.parse(line).event === 'torrserve_stream') logs.push(line); };
   const length = mode === 'complete' ? 65536 : mode === 'paced' ? 1024 * 1024 : 32 * 1024 * 1024;
   const origin = http.createServer((req, res) => {
     assert.equal(req.headers.authorization, auth);
