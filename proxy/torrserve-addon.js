@@ -112,7 +112,13 @@
             if (!pending) return;
             var job = pending;
             pending = null;
-            if (job.xhr) job.xhr.abort();
+            if (job.retryTimer !== null) {
+                clearTimeout(job.retryTimer);
+                job.retryTimer = null;
+            }
+            var xhr = job.xhr;
+            job.xhr = null;
+            if (xhr) xhr.abort();
             app.Loading.stop();
         }
 
@@ -165,9 +171,17 @@
             finally { replaying = null; }
         }
 
-        function request(job, index, authorization) {
+        function request(job, index, authorization, isRetry) {
             if (pending !== job) return;
             if (index === job.urls.length) return replay(job);
+            try {
+                sendTicket(job, index, authorization, isRetry);
+            } catch (e) {
+                fail(job, 'TorrServe: не удалось запросить ссылку для воспроизведения.');
+            }
+        }
+
+        function sendTicket(job, index, authorization, isRetry) {
             var xhr = new window.XMLHttpRequest();
             job.xhr = xhr;
             xhr.open('POST', ticketEndpoint, true);
@@ -175,7 +189,7 @@
             xhr.setRequestHeader('Content-Type', 'application/json');
             xhr.setRequestHeader('Authorization', authorization);
             xhr.onload = function () {
-                if (pending !== job) return;
+                if (pending !== job || job.xhr !== xhr) return;
                 job.xhr = null;
                 var reply;
                 if (xhr.status === 200) {
@@ -189,8 +203,22 @@
                 job.tickets[job.urls[index]] = reply.url;
                 request(job, index + 1, authorization);
             };
-            xhr.onerror = xhr.ontimeout = function () {
-                fail(job, 'TorrServe: сервис воспроизведения не отвечает.');
+            function transportFailed(message) {
+                if (pending !== job || job.xhr !== xhr) return;
+                job.xhr = null;
+                if (isRetry) return fail(job, message);
+                var timer = setTimeout(function () {
+                    if (pending !== job || job.retryTimer !== timer) return;
+                    job.retryTimer = null;
+                    request(job, index, authorization, true);
+                }, 750);
+                job.retryTimer = timer;
+            }
+            xhr.onerror = function () {
+                transportFailed('TorrServe: ошибка сети при получении ссылки (2 попытки).');
+            };
+            xhr.ontimeout = function () {
+                transportFailed('TorrServe: истекло время ожидания ссылки (2 попытки).');
             };
             xhr.send(JSON.stringify({url: job.urls[index]}));
         }
@@ -211,7 +239,7 @@
                 String(app.Torserver.url()).replace(/\/+$/, '') !== sourceOrigin ||
                 !app.Storage.field('torrserver_auth')) return;
             event.abort();
-            var job = {data: data, urls: [data.url], tickets: Object.create(null), quality: data.quality};
+            var job = {data: data, urls: [data.url], tickets: Object.create(null), quality: data.quality, retryTimer: null};
             if (job.quality && typeof job.quality === 'object') {
                 Object.keys(job.quality).forEach(function (key) {
                     var item = job.quality[key];
