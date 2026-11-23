@@ -163,7 +163,8 @@ test('concurrent authorization has a bounded budget instead of accumulating requ
     const result={status:r.status,...await r.json()}; completed.push(result); return result;
   }));
   try {
-    for (let i=0;i<50 && completed.length<16;i++) await delay(20);
+    // Fast rejections can arrive before all admitted requests reach the upstream socket.
+    for (let i=0;i<50 && (completed.length<16 || pendingAuth.size<16);i++) await delay(20);
     assert.equal(pendingAuth.size,16,'only sixteen backend validations may wait concurrently');
     assert.equal(completed.length,16,'excess callers should fail promptly');
     assert.ok(completed.every(r=>r.status===429 && r.error==='authorization_busy'));

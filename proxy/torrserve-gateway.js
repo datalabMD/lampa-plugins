@@ -92,10 +92,34 @@ function stream(config, ticket, req, res) {
   const headers = {Authorization:ticket.authorization, 'Accept-Encoding':'identity'};
   for (const name of ['range','if-range']) if (req.headers[name]) headers[name] = req.headers[name];
   let upstreamResponse;
+  const started = performance.now(), requestId = randomBytes(8).toString('hex');
+  const rawRange = req.headers.range;
+  const safeRange = typeof rawRange === 'string' && rawRange.length <= 128 && /^bytes=[0-9,-]+$/.test(rawRange) ? rawRange : null;
+  let bytes = 0, outcome, errorCode = null, reported = false;
+  const mark = (reason, error) => {
+    if (outcome) return;
+    outcome = reason;
+    if (typeof error?.code === 'string' && /^[A-Z0-9_]{1,64}$/.test(error.code)) errorCode = error.code;
+  };
+  const report = fallback => {
+    if (reported) return;
+    reported = true;
+    // One private, bounded record per stream. Never log URLs, tickets, credentials or client addresses.
+    console.info(JSON.stringify({
+      event:'torrserve_stream', requestId, method:req.method, range:safeRange,
+      status:res.headersSent ? res.statusCode : null, upstreamStatus:upstreamResponse?.statusCode || null,
+      bytes, durationMs:Math.round(performance.now() - started), outcome:outcome || fallback,
+      upstreamComplete:upstreamResponse?.complete || false, upstreamPaused:upstreamResponse?.isPaused() || false,
+      downstreamBackpressure:res.writableNeedDrain, errorCode
+    }));
+  };
   const upstream = transport(url).request(url, {method:req.method, headers}, response => {
     upstreamResponse = response;
     if (res.destroyed) { response.destroy(); return; }
+    response.once('aborted', () => mark('upstream_aborted'));
+    response.once('error', error => mark('upstream_error',error));
     if (response.statusCode >= 300 && response.statusCode < 400) {
+      mark('upstream_redirect');
       response.resume(); sendError(res,502,'upstream_redirect'); return;
     }
     res.statusCode = response.statusCode || 502;
@@ -103,13 +127,27 @@ function stream(config, ticket, req, res) {
       if (response.headers[name] !== undefined) res.setHeader(name,response.headers[name]);
     }
     // Raw HTTP piping preserves byte ranges, encoding and backpressure. Never buffer a video.
-    pipeline(response, res, () => { upstream.destroy(); });
+    // A full viewer buffer pauses the upstream on purpose; only time out while it can be read.
+    response.on('pause', () => upstream.setTimeout(0));
+    response.on('resume', () => upstream.setTimeout(120000));
+    response.on('data', chunk => { bytes += chunk.length; }); // Bytes read upstream, not confirmed by the viewer.
+    pipeline(response, res, error => {
+      if (error) mark('stream_error',error);
+      report(error ? 'stream_error' : 'completed');
+      upstream.destroy();
+    });
   });
-  const cancel = () => { upstream.destroy(); upstreamResponse?.destroy(); };
+  const cancel = () => { mark('client_closed'); upstream.destroy(); upstreamResponse?.destroy(); };
   req.on('aborted', cancel);
-  res.on('close', () => { if (!res.writableEnded) cancel(); });
-  upstream.setTimeout(120000, () => upstream.destroy(new Error('upstream timeout')));
-  upstream.on('error', () => {
+  res.once('finish', () => report('completed'));
+  res.on('close', () => { if (!res.writableFinished) cancel(); report('completed'); });
+  upstream.setTimeout(120000, () => {
+    const error = Object.assign(new Error('upstream timeout'), {code:'UPSTREAM_IDLE_TIMEOUT'});
+    mark('upstream_timeout',error);
+    upstream.destroy(error);
+  });
+  upstream.on('error', error => {
+    mark('upstream_error',error);
     if (res.headersSent) res.destroy(); else sendError(res,502,'upstream_unavailable');
   });
   upstream.end();
